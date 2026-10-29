@@ -1,0 +1,370 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleeping Barber Problem</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 14px;
+            box-shadow: 0 4px 15px #00000015;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #1d4ed8;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .controls label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            align-self: end;
+        }
+
+        button:hover {
+            background: #1e40af;
+        }
+
+        .shop {
+            background: #eff6ff;
+            border: 2px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .barber {
+            text-align: center;
+            font-size: 55px;
+        }
+
+        #barberStatus {
+            text-align: center;
+            font-weight: bold;
+            margin: 10px;
+        }
+
+        .chairs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .chair {
+            background: #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 75px;
+            text-align: center;
+        }
+
+        .occupied {
+            background: #bbf7d0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .stat {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .number {
+            display: block;
+            font-size: 25px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-top: 8px;
+        }
+
+        #log {
+            height: 180px;
+            overflow-y: auto;
+            background: #0f172a;
+            color: #d1fae5;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .explanation {
+            line-height: 1.6;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>💈 Sleeping Barber Problem</h1>
+    <p style="text-align:center">
+        Operating Systems — Process Synchronization Simulation
+    </p>
+
+    <div class="controls">
+        <label>
+            Waiting Chairs
+            <input type="number" id="chairCount" min="1" max="8" value="3">
+        </label>
+
+        <label>
+            Arrival Interval (steps)
+            <input type="number" id="arrivalSpeed" min="1" max="10" value="2">
+        </label>
+
+        <label>
+            Haircut Duration (steps)
+            <input type="number" id="haircutTime" min="1" max="10" value="3">
+        </label>
+
+        <button onclick="startSimulation()">Start</button>
+        <button onclick="nextStep()">Next Event</button>
+        <button onclick="pauseSimulation()">Pause</button>
+        <button onclick="resetSimulation()">Reset</button>
+    </div>
+
+    <div class="shop">
+        <div class="barber" id="barberEmoji">😴</div>
+        <div id="barberStatus">Barber is sleeping</div>
+
+        <h3 style="text-align:center">Waiting Room</h3>
+        <div class="chairs" id="chairs"></div>
+    </div>
+
+    <h2>Live Statistics</h2>
+    <div class="stats">
+        <div class="stat">
+            Customers Arrived
+            <span class="number" id="arrived">0</span>
+        </div>
+        <div class="stat">
+            Haircuts Completed
+            <span class="number" id="served">0</span>
+        </div>
+        <div class="stat">
+            Customers Waiting
+            <span class="number" id="waiting">0</span>
+        </div>
+        <div class="stat">
+            Customers Rejected
+            <span class="number" id="rejected">0</span>
+        </div>
+        <div class="stat">
+            Simulation Steps
+            <span class="number" id="time">0</span>
+        </div>
+    </div>
+
+    <h2>Execution Log</h2>
+    <div id="log"></div>
+
+    <h2>Algorithm Explanation</h2>
+    <div class="explanation">
+        <p><b>1. Barber:</b> If no customers are available, the barber sleeps.</p>
+        <p><b>2. Customer Arrival:</b> A customer wakes the barber if the barber is sleeping.</p>
+        <p><b>3. Waiting Room:</b> If the barber is busy, the customer waits in an available chair.</p>
+        <p><b>4. Full Waiting Room:</b> If every waiting chair is occupied, the arriving customer leaves.</p>
+        <p><b>5. Synchronization:</b> In the classic operating-system solution, semaphores coordinate access to the waiting chairs and barber. This page illustrates the algorithm visually; it does not create real OS threads or semaphores.</p>
+    </div>
+</div>
+
+<script>
+    let queue = [];
+    let activeCustomer = null;
+    let arrived = 0;
+    let served = 0;
+    let rejected = 0;
+    let time = 0;
+    let nextCustomer = 1;
+    let running = false;
+    let timer = null;
+    let remainingHaircut = 0;
+
+    function getChairCount() {
+        return Math.max(1, Math.min(8,
+            Number(document.getElementById("chairCount").value) || 3));
+    }
+
+    function getArrivalSpeed() {
+        return Math.max(1,
+            Number(document.getElementById("arrivalSpeed").value) || 2);
+    }
+
+    function getHaircutTime() {
+        return Math.max(1,
+            Number(document.getElementById("haircutTime").value) || 3);
+    }
+
+    function logMessage(message) {
+        const log = document.getElementById("log");
+        log.innerHTML += `[Step ${time}] ${message}<br>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function render() {
+        const barberEmoji = document.getElementById("barberEmoji");
+        const barberStatus = document.getElementById("barberStatus");
+
+        if (activeCustomer) {
+            barberEmoji.textContent = "💇";
+            barberStatus.textContent =
+                `Barber is serving Customer ${activeCustomer}`;
+        } else {
+            barberEmoji.textContent = "😴";
+            barberStatus.textContent = "Barber is sleeping";
+        }
+
+        const chairs = document.getElementById("chairs");
+        chairs.innerHTML = "";
+
+        for (let i = 0; i < getChairCount(); i++) {
+            const chair = document.createElement("div");
+            chair.className = "chair" + (queue[i] ? " occupied" : "");
+            chair.innerHTML = queue[i]
+                ? `🧍<br>Customer ${queue[i]}`
+                : `🪑<br>Empty`;
+            chairs.appendChild(chair);
+        }
+
+        document.getElementById("arrived").textContent = arrived;
+        document.getElementById("served").textContent = served;
+        document.getElementById("waiting").textContent = queue.length;
+        document.getElementById("rejected").textContent = rejected;
+        document.getElementById("time").textContent = time;
+    }
+
+    function startHaircut(customer) {
+        activeCustomer = customer;
+        remainingHaircut = getHaircutTime();
+        logMessage(`Barber starts serving Customer ${customer}.`);
+    }
+
+    function nextStep() {
+        time++;
+
+        // Finish the current haircut, if one is in progress.
+        if (activeCustomer !== null) {
+            remainingHaircut--;
+
+            if (remainingHaircut <= 0) {
+                logMessage(`Haircut completed for Customer ${activeCustomer}.`);
+                served++;
+                activeCustomer = null;
+            }
+        }
+
+        // If the barber is free, serve the next waiting customer.
+        if (activeCustomer === null && queue.length > 0) {
+            const customer = queue.shift();
+            startHaircut(customer);
+        }
+
+        // A new customer arrives at the configured interval.
+        if (time % getArrivalSpeed() === 0) {
+            const customer = nextCustomer++;
+            arrived++;
+            logMessage(`Customer ${customer} arrives.`);
+
+            if (activeCustomer === null) {
+                startHaircut(customer);
+                logMessage(`Customer ${customer} wakes the sleeping barber.`);
+            } else if (queue.length < getChairCount()) {
+                queue.push(customer);
+                logMessage(`Customer ${customer} sits in the waiting room.`);
+            } else {
+                rejected++;
+                logMessage(`Waiting room full. Customer ${customer} leaves.`);
+            }
+        }
+
+        render();
+    }
+
+    function startSimulation() {
+        pauseSimulation();
+        running = true;
+        timer = setInterval(() => {
+            if (running) nextStep();
+        }, 1000);
+        logMessage("Simulation started.");
+    }
+
+    function pauseSimulation() {
+        running = false;
+        if (timer !== null) {
+            clearInterval(timer);
+            timer = null;
+        }
+    }
+
+    function resetSimulation() {
+        pauseSimulation();
+        queue = [];
+        activeCustomer = null;
+        arrived = 0;
+        served = 0;
+        rejected = 0;
+        time = 0;
+        nextCustomer = 1;
+        remainingHaircut = 0;
+        document.getElementById("log").innerHTML = "";
+        logMessage("Simulation reset.");
+        render();
+    }
+
+    render();
+    logMessage("Ready. Click Start or Next Event.");
+</script>
+</body>
+</html>
